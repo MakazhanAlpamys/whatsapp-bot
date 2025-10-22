@@ -1,0 +1,32 @@
+{
+  "name": "whatsapp-analytics-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp group analytics bot with AI-powered daily summaries using Google Gemini",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "analytics",
+    "ai",
+    "gemini",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "whatsapp-web.js": "^1.23.0",
+    "pg": "^8.11.3",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.3.1",
+    "@google/genai": "^1.3.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
