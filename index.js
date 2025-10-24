@@ -2,6 +2,7 @@ import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import qrcode from 'qrcode-terminal';
 import dotenv from 'dotenv';
+import express from 'express';
 import database from './db.js';
 import geminiService from './gemini.js';
 import handlers from './handlers.js';
@@ -13,6 +14,26 @@ class WhatsAppBot {
   constructor() {
     this.client = null;
     this.isRunning = false;
+    this.httpServer = null;
+  }
+
+  startHttpServer() {
+    const app = express();
+    const port = process.env.PORT || 10000;
+
+    // Health check endpoint
+    app.get('/health', (req, res) => {
+      res.status(200).send('OK');
+    });
+
+    // Home endpoint
+    app.get('/', (req, res) => {
+      res.status(200).send('WhatsApp Analytics Bot is running!');
+    });
+
+    this.httpServer = app.listen(port, '0.0.0.0', () => {
+      console.log(`🌐 HTTP server started on port ${port}`);
+    });
   }
 
   async initialize() {
@@ -129,6 +150,9 @@ class WhatsAppBot {
   }
 
   async start() {
+    // Start HTTP server first for Render
+    this.startHttpServer();
+
     const initialized = await this.initialize();
     if (!initialized) {
       process.exit(1);
@@ -153,6 +177,11 @@ class WhatsAppBot {
 
   async shutdown() {
     try {
+      console.log('🔄 Shutting down HTTP server...');
+      if (this.httpServer) {
+        this.httpServer.close();
+      }
+
       console.log('🔄 Disconnecting from WhatsApp...');
       if (this.client) {
         await this.client.destroy();

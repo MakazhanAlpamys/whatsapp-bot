@@ -261,6 +261,37 @@ CREATE TABLE messages (
 );
 ```
 
+## 🚀 Deployment on Render (Free Tier)
+
+### Quick Setup
+
+1. **Create Web Service** on [Render](https://render.com/)
+   - Root Directory: `WhatsApp`
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+
+2. **Set Environment Variables**:
+   ```
+   GEMINI_API_KEY=your_gemini_key
+   DATABASE_URL=your_postgres_url
+   PORT=10000
+   ```
+
+3. **HTTP Server**: Bot includes Express server (port from `PORT` env) to prevent Render from sleeping
+
+4. **WhatsApp Authentication**: 
+   - After deployment, check Render logs for QR code
+   - Scan QR code with WhatsApp mobile app (Settings → Linked Devices)
+   - Session persists across restarts
+
+5. **Keep-Alive**: Use [UptimeRobot](https://uptimerobot.com/) to ping `/health` endpoint every 14 minutes
+
+### Endpoints
+- `GET /` - Bot status
+- `GET /health` - Health check (returns "OK")
+
+📖 **Подробная инструкция**: См. [RENDER_SETUP.md](../RENDER_SETUP.md) в корне проекта
+
 ## 🤝 Contributing
 
 1. Fork the repository
