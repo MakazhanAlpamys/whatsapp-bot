@@ -85,6 +85,7 @@ class WhatsAppBot {
             <div>
               <a href="/qr">📱 View QR Code</a>
               <a href="/status">📊 Check Status</a>
+              <a href="/reconnect">🔄 Reconnect</a>
             </div>
           </div>
         </body>
@@ -295,6 +296,68 @@ class WhatsAppBot {
       });
     });
 
+    // Reconnect endpoint - reinitialize WhatsApp client
+    app.get('/reconnect', async (req, res) => {
+      try {
+        if (this.client) {
+          console.log('🔄 Destroying existing WhatsApp client...');
+          await this.client.destroy();
+        }
+        console.log('🔄 Reinitializing WhatsApp client...');
+        await this.initializeWhatsApp();
+        res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>WhatsApp Bot - Reconnecting</title>
+            <meta charset="UTF-8">
+            <meta http-equiv="refresh" content="5;url=/qr">
+            <style>
+              body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                max-width: 600px;
+                margin: 50px auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-align: center;
+              }
+              .container {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                padding: 40px;
+                border-radius: 20px;
+              }
+              .spinner {
+                border: 4px solid rgba(255, 255, 255, 0.3);
+                border-radius: 50%;
+                border-top: 4px solid white;
+                width: 50px;
+                height: 50px;
+                animation: spin 1s linear infinite;
+                margin: 20px auto;
+              }
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>🔄 Reconnecting...</h1>
+              <div class="spinner"></div>
+              <p>WhatsApp client is being reinitialized.</p>
+              <p><small>You will be redirected to QR page in 5 seconds...</small></p>
+            </div>
+          </body>
+          </html>
+        `);
+      } catch (error) {
+        res.status(500).send('Error reconnecting: ' + error.message);
+      }
+    });
+
     this.httpServer = app.listen(port, '0.0.0.0', () => {
       console.log(`🌐 HTTP server started on port ${port}`);
     });
@@ -322,14 +385,16 @@ class WhatsAppBot {
       // Test Gemini connection
       await geminiService.testConnection();
 
-      // Initialize WhatsApp client
+      // Initialize WhatsApp client (non-blocking)
       await this.initializeWhatsApp();
 
       console.log('✅ Bot initialization completed successfully');
+      console.log('⚠️ If QR code doesn\'t appear, access /qr endpoint in your browser');
       return true;
 
     } catch (error) {
       console.error('❌ Bot initialization failed:', error.message);
+      console.error('⚠️ Some features may not work properly');
       return false;
     }
   }
@@ -357,20 +422,35 @@ class WhatsAppBot {
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
           '--no-zygote',
-          '--single-process',
-          '--disable-gpu'
-        ]
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--disable-extensions'
+        ],
+        timeout: 60000
+      },
+      webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
       }
     });
 
     // Set up event handlers
     this.setupEventHandlers();
 
-    // Initialize the client
-    await this.client.initialize();
+    // Initialize the client (non-blocking)
+    console.log('⏳ Initializing WhatsApp client...');
+    this.client.initialize().catch(error => {
+      console.error('❌ WhatsApp initialization error:', error.message);
+      console.log('⚠️ Bot will keep running. Try accessing /qr endpoint to reconnect.');
+    });
   }
 
   setupEventHandlers() {
+    // Loading state
+    this.client.on('loading_screen', (percent, message) => {
+      console.log(`⏳ Loading: ${percent}% - ${message}`);
+    });
+
     // QR Code generation
     this.client.on('qr', (qr) => {
       console.log('📱 QR Code received, scan with WhatsApp:');
@@ -406,6 +486,9 @@ class WhatsAppBot {
     // Authentication failure
     this.client.on('auth_failure', (msg) => {
       console.error('❌ WhatsApp authentication failed:', msg);
+      console.log('⚠️ Please try scanning the QR code again at /qr endpoint');
+      this.isAuthenticated = false;
+      this.qrCode = null;
     });
 
     // Client disconnected
@@ -426,7 +509,8 @@ class WhatsAppBot {
 
     const initialized = await this.initialize();
     if (!initialized) {
-      process.exit(1);
+      console.log('⚠️ Bot started with errors. HTTP server is running.');
+      console.log('📱 Access /qr endpoint to scan QR code when ready.');
     }
 
     // Handle graceful shutdown
